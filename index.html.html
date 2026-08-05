@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSP Site Walk and Splice Point Validation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --navy:#1F3A5F;
+    --navy-dark:#152840;
+    --gray:#6B7280;
+    --light-gray:#E5E7EB;
+    --field-bg:#F3F4F6;
+    --accent:#D97706;
+    --ok:#16A34A;
+    --danger:#DC2626;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:#F8F9FB;
+    color:#111827;
+  }
+  header{
+    background:linear-gradient(135deg,var(--navy),var(--navy-dark));
+    color:#fff;
+    padding:22px 20px 20px;
+  }
+  header h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-0.01em;}
+  header p{margin:4px 0 0;font-size:12.5px;color:#C9D6E8;}
+  main{max-width:640px;margin:0 auto;padding:18px 16px 60px;}
+  .section{
+    background:#fff;
+    border:1px solid var(--light-gray);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:16px;
+  }
+  .section h2{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--navy);
+    margin:0 0 12px;
+    font-weight:700;
+    border-bottom:2px solid var(--navy);
+    padding-bottom:8px;
+  }
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+  .row:last-child{margin-bottom:0;}
+  .field{flex:1 1 220px;display:flex;flex-direction:column;}
+  label{
+    font-size:10.5px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--gray);
+    margin-bottom:5px;
+  }
+  input[type=text], input[type=date], textarea, select{
+    font-size:15px;
+    font-family:inherit;
+    padding:10px 11px;
+    border:1px solid var(--light-gray);
+    border-radius:8px;
+    background:var(--field-bg);
+    color:#111827;
+    width:100%;
+  }
+  select{
+    appearance:none;
+    -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%236B7280'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;
+    background-position:right 10px center;
+    background-size:18px;
+    padding-right:34px;
+  }
+  input:focus, textarea:focus, select:focus{
+    outline:2px solid var(--navy);
+    outline-offset:1px;
+    background:#fff;
+  }
+  textarea{resize:vertical;min-height:70px;}
+
+  .dropzone{
+    position:relative;
+    border:2px dashed #B9C2CE;
+    border-radius:var(--radius);
+    background:var(--field-bg);
+    min-height:180px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    overflow:hidden;
+    transition:border-color .15s, background .15s;
+  }
+  .dropzone.drag-over{
+    border-color:var(--navy);
+    background:#EAF0F8;
+  }
+  .dropzone.has-image{
+    border-style:solid;
+    border-color:var(--light-gray);
+  }
+  .dz-placeholder{
+    text-align:center;
+    color:var(--gray);
+    padding:16px;
+    pointer-events:none;
+  }
+  .dz-placeholder .icon{
+    width:34px;height:34px;margin:0 auto 8px;
+    display:block;
+  }
+  .dz-placeholder .primary{font-size:13.5px;font-weight:600;color:#374151;}
+  .dz-placeholder .secondary{font-size:11.5px;margin-top:2px;}
+  .dz-thumb{
+    width:100%;height:220px;object-fit:cover;display:block;
+  }
+  .dz-thumb[hidden]{display:none;}
+  .dz-remove{
+    position:absolute;top:8px;right:8px;
+    width:28px;height:28px;
+    border-radius:50%;
+    border:none;
+    background:rgba(17,24,39,.72);
+    color:#fff;
+    font-size:16px;
+    line-height:1;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .dz-remove[hidden]{display:none;}
+  .dz-filename{
+    position:absolute;bottom:0;left:0;right:0;
+    background:linear-gradient(transparent,rgba(17,24,39,.75));
+    color:#fff;
+    font-size:11px;
+    padding:16px 10px 8px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .photo-label{font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px;}
+  .photo-block{margin-bottom:18px;}
+  .photo-block:last-child{margin-bottom:0;}
+  .caption-input{margin-top:8px;}
+
+  .hint{
+    font-size:12px;
+    color:var(--gray);
+    line-height:1.5;
+    margin:-2px 0 14px;
+  }
+
+  .actions{
+    position:sticky;
+    bottom:0;
+    background:linear-gradient(transparent,#F8F9FB 25%);
+    padding:14px 16px 18px;
+    margin:0 -16px -60px;
+  }
+  button.primary{
+    width:100%;
+    background:var(--navy);
+    color:#fff;
+    border:none;
+    padding:14px;
+    font-size:15px;
+    font-weight:700;
+    border-radius:10px;
+    cursor:pointer;
+    box-shadow:0 4px 14px rgba(31,58,95,.35);
+  }
+  button.primary:active{background:var(--navy-dark);}
+  button.primary:disabled{opacity:.6;}
+  #status{
+    text-align:center;
+    font-size:12px;
+    color:var(--gray);
+    margin-top:8px;
+    min-height:16px;
+  }
+  #status.ok{color:var(--ok);font-weight:600;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>OSP Site Walk and Splice Point Validation</h1>
+  <p>Outside Plant Engineering &nbsp;|&nbsp; Hotwire Communications</p>
+</header>
+
+<main>
+
+  <div class="section">
+    <h2>Project Information</h2>
+    <div class="row">
+      <div class="field">
+        <label for="projectName">Project Name</label>
+        <input type="text" id="projectName" autocomplete="off">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="pNumber">P#</label>
+        <input type="text" id="pNumber" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="dateWalk">Date Site Walk Performed</label>
+        <input type="date" id="dateWalk">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="hotwireTech">Hotwire Field Tech Name(s)</label>
+        <input type="text" id="hotwireTech" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="carrierTech">Carrier Field Tech Name(s)</label>
+        <input type="text" id="carrierTech" autocomplete="off">
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Splice Point Details</h2>
+    <div class="row">
+      <div class="field">
+        <label for="spliceId">Splice Point ID</label>
+        <input type="text" id="spliceId" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="coords">Coordinates (Lat, Long)</label>
+        <input type="text" id="coords" placeholder="e.g. 33.9526, -84.5499" autocomplete="off">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="fiberAssignments">Fiber Assignments</label>
+        <textarea id="fiberAssignments"></textarea>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="hwcTail">HWC Tail Status</label>
+        <select id="hwcTail">
+          <option value="">Select...</option>
+          <option value="Existing">Existing</option>
+          <option value="New Needed">New Needed</option>
+          <option value="N/A">N/A</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="carrierTail">Carrier Tail Status</label>
+        <select id="carrierTail">
+          <option value="">Select...</option>
+          <option value="Existing">Existing</option>
+          <option value="New Needed">New Needed</option>
+          <option value="N/A">N/A</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Site Walk Photos</h2>
+    <p class="hint">Tap a box to take a photo or choose one from your library. On desktop, you can also drag and drop an image file in.</p>
+
+    <div class="photo-block">
+      <div class="photo-label">Photo 1 — Splice Point / Enclosure</div>
+      <div class="dropzone" id="dz1" tabindex="0" role="button" aria-label="Add photo 1">
+        <input type="file" accept="image/*" id="file1" hidden>
+        <div class="dz-placeholder" id="dzPlaceholder1">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.6"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.2-2h5.6L16 6"/></svg>
+          <div class="primary">Add photo</div>
+          <div class="secondary">Tap to capture or upload</div>
+        </div>
+        <img class="dz-thumb" id="thumb1" hidden>
+        <div class="dz-filename" id="filename1" hidden></div>
+        <button class="dz-remove" id="remove1" hidden aria-label="Remove photo 1">&times;</button>
+      </div>
+      <input type="text" class="caption-input" id="caption1" placeholder="Caption (optional)">
+    </div>
+
+    <div class="photo-block">
+      <div class="photo-label">Photo 2 — Site / Access Overview</div>
+      <div class="dropzone" id="dz2" tabindex="0" role="button" aria-label="Add photo 2">
+        <input type="file" accept="image/*" id="file2" hidden>
+        <div class="dz-placeholder" id="dzPlaceholder2">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.6"><rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.2"/><path d="M8 6l1.2-2h5.6L16 6"/></svg>
+          <div class="primary">Add photo</div>
+          <div class="secondary">Tap to capture or upload</div>
+        </div>
+        <img class="dz-thumb" id="thumb2" hidden>
+        <div class="dz-filename" id="filename2" hidden></div>
+        <button class="dz-remove" id="remove2" hidden aria-label="Remove photo 2">&times;</button>
+      </div>
+      <input type="text" class="caption-input" id="caption2" placeholder="Caption (optional)">
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Notes / Additional Comments</h2>
+    <div class="row">
+      <div class="field">
+        <textarea id="notes" style="min-height:90px;"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="generateBtn">Generate PDF</button>
+    <div id="status"></div>
+  </div>
+
+</main>
+
+<script>
+const photos = { 1: null, 2: null }; // {dataUrl, name}
+
+function setupDropzone(idx){
+  const dz = document.getElementById('dz' + idx);
+  const input = document.getElementById('file' + idx);
+  const placeholder = document.getElementById('dzPlaceholder' + idx);
+  const thumb = document.getElementById('thumb' + idx);
+  const filenameEl = document.getElementById('filename' + idx);
+  const removeBtn = document.getElementById('remove' + idx);
+
+  function openPicker(){ input.click(); }
+
+  dz.addEventListener('click', (e) => {
+    if (e.target === removeBtn) return;
+    openPicker();
+  });
+  dz.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
+  });
+
+  input.addEventListener('change', () => {
+    if (input.files && input.files[0]) handleFile(idx, input.files[0]);
+  });
+
+  dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) handleFile(idx, file);
+  });
+
+  removeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    photos[idx] = null;
+    input.value = '';
+    dz.classList.remove('has-image');
+    placeholder.hidden = false;
+    thumb.hidden = true;
+    filenameEl.hidden = true;
+    removeBtn.hidden = true;
+  });
+
+  function handleFile(idx, file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        // Downscale to keep PDF size reasonable
+        const maxDim = 1600;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          const scale = maxDim / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+
+        photos[idx] = { dataUrl, name: file.name };
+        thumb.src = dataUrl;
+        thumb.hidden = false;
+        placeholder.hidden = true;
+        filenameEl.textContent = file.name;
+        filenameEl.hidden = false;
+        removeBtn.hidden = false;
+        dz.classList.add('has-image');
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+setupDropzone(1);
+setupDropzone(2);
+
+document.getElementById('generateBtn').addEventListener('click', generatePdf);
+
+function val(id){ return document.getElementById(id).value.trim(); }
+
+function generatePdf(){
+  const statusEl = document.getElementById('status');
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  statusEl.classList.remove('ok');
+  statusEl.textContent = 'Building PDF...';
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const NAVY = [31, 58, 95];
+  const GRAY = [107, 114, 128];
+  const LIGHT = [243, 244, 246];
+  const M = 36; // 0.5in margin
+
+  function header(){
+    doc.setFillColor(...NAVY);
+    doc.rect(0, 0, W, 68, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(16);
+    doc.text('OSP Site Walk and Splice Point Validation', M, 34);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.setTextColor(201,214,232);
+    doc.text('Outside Plant Engineering  |  Hotwire Communications', M, 50);
+  }
+
+  function footer(pageNum, totalPages){
+    doc.setDrawColor(...LIGHT);
+    doc.line(M, H - 40, W - M, H - 40);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY);
+    doc.text('Hotwire Communications - OSP Engineering', M, H - 28);
+    doc.text('Page ' + pageNum + ' of ' + totalPages, W - M, H - 28, { align: 'right' });
+  }
+
+  function sectionLabel(text, y){
+    doc.setTextColor(...NAVY);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(11);
+    doc.text(text, M, y);
+    doc.setDrawColor(...NAVY);
+    doc.setLineWidth(1.3);
+    doc.line(M, y + 4, W - M, y + 4);
+  }
+
+  function fieldBlock(label, value, x, y, w, h){
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...GRAY);
+    doc.text(label.toUpperCase(), x, y);
+    doc.setFillColor(...LIGHT);
+    doc.setDrawColor(...LIGHT);
+    doc.roundedRect(x, y + 6, w, h, 3, 3, 'FD');
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    doc.setTextColor(17,24,39);
+    const lines = doc.splitTextToSize(value || '-', w - 14);
+    doc.text(lines.slice(0, Math.floor((h-10)/12)+1), x + 7, y + 6 + 15);
+  }
+
+  // ---- PAGE 1 ----
+  header();
+  let y = 100;
+  sectionLabel('Project Information', y);
+  y += 26;
+
+  const colW = (W - 2*M - 18) / 2;
+  fieldBlock('Project Name', val('projectName'), M, y, W - 2*M, 26);
+  y += 26 + 22;
+
+  fieldBlock('P#', val('pNumber'), M, y, colW, 22);
+  fieldBlock('Date Site Walk Performed', formatDate(val('dateWalk')), M + colW + 18, y, colW, 22);
+  y += 22 + 22;
+
+  fieldBlock('Hotwire Field Tech Name(s)', val('hotwireTech'), M, y, colW, 22);
+  fieldBlock('Carrier Field Tech Name(s)', val('carrierTech'), M + colW + 18, y, colW, 22);
+  y += 22 + 30;
+
+  sectionLabel('Splice Point Details', y);
+  y += 26;
+
+  fieldBlock('Splice Point ID', val('spliceId'), M, y, colW, 22);
+  fieldBlock('Coordinates of Splice Point (Lat, Long)', val('coords'), M + colW + 18, y, colW, 22);
+  y += 22 + 22;
+
+  fieldBlock('Fiber Assignments', val('fiberAssignments'), M, y, W - 2*M, 90);
+  y += 90 + 22;
+
+  fieldBlock('HWC Tail Status', val('hwcTail'), M, y, colW, 22);
+  fieldBlock('Carrier Tail Status', val('carrierTail'), M + colW + 18, y, colW, 22);
+  y += 22 + 28;
+
+  sectionLabel('Notes / Additional Comments', y);
+  y += 26;
+  fieldBlock('', val('notes'), M, y, W - 2*M, 100);
+
+  // ---- PAGE 2 : PHOTOS ----
+  doc.addPage();
+  header();
+  y = 100;
+  sectionLabel('Site Walk Photos', y);
+  y += 24;
+
+  addPhotoBlock('Photo 1 \u2014 Splice Point / Enclosure', photos[1], val('caption1'), y);
+  y += 230;
+  addPhotoBlock('Photo 2 \u2014 Site / Access Overview', photos[2], val('caption2'), y);
+
+  function addPhotoBlock(label, photo, caption, yPos){
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(...NAVY);
+    doc.text(label, M, yPos);
+    const boxY = yPos + 10;
+    const boxW = W - 2*M;
+    const boxH = 175;
+    if (photo){
+      try{
+        const props = doc.getImageProperties(photo.dataUrl);
+        const ratio = Math.min(boxW/props.width, boxH/props.height);
+        const iw = props.width * ratio, ih = props.height * ratio;
+        const ix = M + (boxW - iw)/2, iy = boxY + (boxH - ih)/2;
+        doc.setDrawColor(...LIGHT);
+        doc.rect(M, boxY, boxW, boxH);
+        doc.addImage(photo.dataUrl, 'JPEG', ix, iy, iw, ih);
+      } catch(err){
+        emptyBox(boxY, boxW, boxH);
+      }
+    } else {
+      emptyBox(boxY, boxW, boxH);
+    }
+    if (caption){
+      doc.setFont('helvetica','italic');
+      doc.setFontSize(9);
+      doc.setTextColor(...GRAY);
+      doc.text(caption, M, boxY + boxH + 14);
+    }
+  }
+
+  function emptyBox(boxY, boxW, boxH){
+    doc.setDrawColor(...GRAY);
+    doc.setLineDashPattern([4,3], 0);
+    doc.rect(M, boxY, boxW, boxH);
+    doc.setLineDashPattern([], 0);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...GRAY);
+    doc.text('No photo added', W/2, boxY + boxH/2, { align: 'center' });
+  }
+
+  function formatDate(iso){
+    if (!iso) return '';
+    const [yy,mm,dd] = iso.split('-');
+    return mm + '/' + dd + '/' + yy;
+  }
+
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++){
+    doc.setPage(i);
+    footer(i, pageCount);
+  }
+
+  const projectPart = val('projectName') ? val('projectName').replace(/[^a-z0-9]+/gi,'_') : 'form';
+  const splicePart = val('spliceId') ? val('spliceId').replace(/[^a-z0-9]+/gi,'_') : 'site_walk';
+  doc.save(`OSP_Site_Walk_${projectPart}_${splicePart}.pdf`);
+
+  statusEl.textContent = 'PDF downloaded.';
+  statusEl.classList.add('ok');
+  btn.disabled = false;
+}
+</script>
+
+</body>
+</html>
